@@ -559,7 +559,7 @@ struct Blosum{
   static const int num_amino_acids = 25; 
   static const size_t max_iterations = 200;
   static const float scores62 [num_amino_acids] [num_amino_acids];
-  static vector<vector<float> > scores;
+  static vector<vector<float>> scores;
 
   template<typename T>
   static inline T pq_distance(T distance, T margin, int child_nr) {
@@ -755,7 +755,6 @@ public:
     }
     _n_nodes = _n_items;
     if (_verbose) showUpdate("before building n_nodes = %d \n", _n_nodes); 
-    showUpdate("before building n_nodes = %d \n", _n_nodes); 
     while (1) {
       if (q == -1 && _n_nodes >= _n_items * 2) 
         break;
@@ -768,10 +767,11 @@ public:
 
       vector<S> indices;
       for (S i = 0; i < _n_items; i++) {
-        if (_get(i)->n_descendants >= 1) // Issue #223 
-                indices.push_back(i);
+  if (_get(i)->n_descendants >= 1) // Issue #223
+  //if (_get(i)->n_descendants == 1) // Issue #223
+          indices.push_back(i);
       }
-    
+
       _roots.push_back(_make_tree(indices, true)); //make tree called with vector w/ all item #s
     }
     // Also, copy the roots into the last segment of the array
@@ -782,10 +782,7 @@ public:
     _n_nodes += _roots.size();
 
     if (_verbose) showUpdate("has %d nodes\n", _n_nodes); 
-    showUpdate("has %d nodes\n", _n_nodes); 
-
     if (_verbose) showUpdate("finished building \n"); 
-    showUpdate("finished building \n"); 
   }
   
   void unbuild() {
@@ -959,7 +956,7 @@ protected:
     Node* m = (Node*)malloc(_s); // TODO: avoid 
     size_t* centrds = centroids(children, _random);
     if (_verbose) showUpdate("children size: %d \n", children.size());
-    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d \n", centrds[0], centrds[1]); 
+    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d", centrds[0], centrds[1]); 
 
     D::create_split(children, _f, _s, _random, m, centrds[0], centrds[1]);
     
@@ -1005,6 +1002,21 @@ protected:
     for (int side = 0; side < 2; side++) {
       // run _make_tree for the smallest child first (for cache locality)
       m->children[side^flip] = _make_tree(children_indices[side^flip], false);
+      /*if (children_indices[side^flip][0] == 1) { //TODO: remove
+        std::vector <T> epitope;
+         epitope.push_back(12);
+         epitope.push_back(11);
+         epitope.push_back(11);
+         epitope.push_back(19);
+         epitope.push_back(16);
+         epitope.push_back(0);
+         epitope.push_back(6);
+         epitope.push_back(0);
+        T mgn = D::margin(m, epitope.data(), _f); 
+        for (int hh = 0; hh < _f; hh++)
+          showUpdate("%g ", m->v[hh]);
+        showUpdate("node index : %d, margin: %g \n", m->children[side^flip], mgn); //TODO: remove
+      }*/
     }
 
     _allocate_size(_n_nodes + 1);
@@ -1027,6 +1039,7 @@ protected:
       search_k = n * _roots.size(); // slightly arbitrary default value
 
     for (size_t i = 0; i < _roots.size(); i++) {
+      //pushes roots nodes in by priority 
       q.push(make_pair(Distance::template pq_initial_value<T>(), _roots[i]));
     }
 

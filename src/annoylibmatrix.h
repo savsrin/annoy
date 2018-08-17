@@ -271,6 +271,8 @@ struct Angular {
     };
     T v[1]; // We let this one overflow intentionally. Need to allocate at least 1 to make GCC happy
   };
+  vector<vector<float> > scores;
+
   template<typename S, typename T>
   static inline T distance(const Node<S, T>* x, const Node<S, T>* y, int f) {
     // want to calculate (a/|a| - b/|b|)^2
@@ -488,6 +490,7 @@ struct Minkowski {
     };
     T v[1];
   };
+  vector<vector<float> > scores;
   template<typename S, typename T>
   static inline T margin(const Node<S, T>* n, const T* y, int f) {
     return n->a + dot(n->v, y, f);
@@ -558,8 +561,8 @@ struct Blosum{
   };
   static const int num_amino_acids = 25; 
   static const size_t max_iterations = 200;
-  static const float scores62 [num_amino_acids] [num_amino_acids];
-  static vector<vector<float> > scores;
+  float scores62 [num_amino_acids] [num_amino_acids];
+  vector<vector<float> > scores;
 
   template<typename T>
   static inline T pq_distance(T distance, T margin, int child_nr) {
@@ -603,9 +606,9 @@ struct Blosum{
     T blosum_sim = 0;
     T score1 = 0, score2 = 0; 
     for (int i = 0; i < f; i++) {
-      score1 += scores62[(int) u[i]][(int) u[i]]; 
-      score2 += scores62[(int) v[i]][(int) v[i]];   
-      blosum_sim += scores62[(int) u[i]][(int) v[i]];
+      score1 += scores[(int) u[i]][(int) u[i]]; 
+      score2 += scores[(int) v[i]][(int) v[i]];   
+      blosum_sim += scores[(int) u[i]][(int) v[i]];
     }
     return (std::max(score1, score2)- blosum_sim);
   }
@@ -681,6 +684,7 @@ class AnnoyIndexInterface {
   virtual void verbose(bool v) = 0;
   virtual void get_item(S item, T* v) = 0;
   virtual void set_seed(int q) = 0;
+  virtual void set_blosum_matrix(vector<vector<float> > blosum_scores); 
 };
 
 template<typename S, typename T, typename Distance, typename Random>
@@ -768,10 +772,10 @@ public:
 
       vector<S> indices;
       for (S i = 0; i < _n_items; i++) {
-        if (_get(i)->n_descendants >= 1) // Issue #223 
+        if (_get(i)->n_descendants >= 1) // Issue #223
                 indices.push_back(i);
       }
-    
+
       _roots.push_back(_make_tree(indices, true)); //make tree called with vector w/ all item #s
     }
     // Also, copy the roots into the last segment of the array
@@ -785,7 +789,6 @@ public:
     showUpdate("has %d nodes\n", _n_nodes); 
 
     if (_verbose) showUpdate("finished building \n"); 
-    showUpdate("finished building \n"); 
   }
   
   void unbuild() {
@@ -901,6 +904,10 @@ public:
     _random.set_seed(seed);
   }
 
+  void set_blosum_matrix(vector<vector<float> > blosum_scores) {
+    D::scores = blosum_scores; 
+  }
+
 protected:
   void _allocate_size(S n) {
     if (n > _nodes_size) {
@@ -959,7 +966,7 @@ protected:
     Node* m = (Node*)malloc(_s); // TODO: avoid 
     size_t* centrds = centroids(children, _random);
     if (_verbose) showUpdate("children size: %d \n", children.size());
-    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d \n", centrds[0], centrds[1]); 
+    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d", centrds[0], centrds[1]); 
 
     D::create_split(children, _f, _s, _random, m, centrds[0], centrds[1]);
     
@@ -1005,6 +1012,21 @@ protected:
     for (int side = 0; side < 2; side++) {
       // run _make_tree for the smallest child first (for cache locality)
       m->children[side^flip] = _make_tree(children_indices[side^flip], false);
+      /*if (children_indices[side^flip][0] == 1) { //TODO: remove
+        std::vector <T> epitope;
+         epitope.push_back(12);
+         epitope.push_back(11);
+         epitope.push_back(11);
+         epitope.push_back(19);
+         epitope.push_back(16);
+         epitope.push_back(0);
+         epitope.push_back(6);
+         epitope.push_back(0);
+        T mgn = D::margin(m, epitope.data(), _f); 
+        for (int hh = 0; hh < _f; hh++)
+          showUpdate("%g ", m->v[hh]);
+        showUpdate("node index : %d, margin: %g \n", m->children[side^flip], mgn); //TODO: remove
+      }*/
     }
 
     _allocate_size(_n_nodes + 1);
@@ -1027,6 +1049,7 @@ protected:
       search_k = n * _roots.size(); // slightly arbitrary default value
 
     for (size_t i = 0; i < _roots.size(); i++) {
+      //pushes roots nodes in by priority 
       q.push(make_pair(Distance::template pq_initial_value<T>(), _roots[i]));
     }
 

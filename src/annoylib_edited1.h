@@ -57,7 +57,7 @@ typedef signed __int32    int32_t;
 // This allows others to supply their own logger / error printer without
 // requiring Annoy to import their headers. See RcppAnnoy for a use case.
 #ifndef __ERROR_PRINTER_OVERRIDE__
-  #define showUpdate(...) { fprintf(stderr, __VA_ARGS__ ); fflush(stderr);}
+  #define showUpdate(...) { fprintf(stderr, __VA_ARGS__ ); }
 #else
   #define showUpdate(...) { __ERROR_PRINTER_OVERRIDE__( __VA_ARGS__ ); }
 #endif
@@ -193,19 +193,8 @@ inline void normalize(T* v, int f) {
   }
 }
 
-template<typename Node, typename Random>
-inline size_t* centroids(const vector<Node*>& nodes, Random& random) {
-  size_t* ret = (size_t*) malloc(2*sizeof(size_t));
-  size_t count = nodes.size();
-  ret[0] = random.index(count);//random.index(count);
-  ret[1] = random.index(count -1);//random.index(count-1); 
-  //size_t ret[2] = {random.index(count), random.index(count-1)};
-  ret[1] += (ret[1] >= ret[0]);
-  return ret;
-}
-
 template<typename T, typename Random, typename Distance, typename Node>
-inline void two_means(const vector<Node*>& nodes, int f, Random& random, bool cosine, Node* p, Node* q, size_t i, size_t j) {
+inline void two_means(const vector<Node*>& nodes, int f, Random& random, bool cosine, Node* p, Node* q) {
   /*
     This algorithm is a huge heuristic. Empirically it works really well, but I
     can't motivate it well. The basic idea is to keep two centroids and assign
@@ -213,13 +202,16 @@ inline void two_means(const vector<Node*>& nodes, int f, Random& random, bool co
     assigned to it, so to balance it. 
   */
   static int iteration_steps = 200;
+  size_t count = nodes.size();
+
+  size_t i = random.index(count);
+  size_t j = random.index(count-1);
+  j += (j >= i); // ensure that i != j
   memcpy(p->v, nodes[i]->v, f * sizeof(T));
   memcpy(q->v, nodes[j]->v, f * sizeof(T));
   if (cosine) { normalize(p->v, f); normalize(q->v, f); }
   Distance::init_node(p, f);
   Distance::init_node(q, f);
-  size_t count = nodes.size();
-
 
   int ic = 1, jc = 1;
   for (int l = 0; l < iteration_steps; l++) {
@@ -232,12 +224,12 @@ inline void two_means(const vector<Node*>& nodes, int f, Random& random, bool co
     }
     if (di < dj) {
       for (int z = 0; z < f; z++)
-  p->v[z] = (p->v[z] * ic + nodes[k]->v[z] / norm) / (ic + 1); 
+	p->v[z] = (p->v[z] * ic + nodes[k]->v[z] / norm) / (ic + 1); //0-23
       Distance::init_node(p, f);
       ic++;
     } else if (dj < di) {
       for (int z = 0; z < f; z++)
-  q->v[z] = (q->v[z] * jc + nodes[k]->v[z] / norm) / (jc + 1);
+	q->v[z] = (q->v[z] * jc + nodes[k]->v[z] / norm) / (jc + 1);
       Distance::init_node(q, f);
       jc++;
     }
@@ -245,7 +237,6 @@ inline void two_means(const vector<Node*>& nodes, int f, Random& random, bool co
 }
 
 } // namespace
-bool __verbose = false; 
 
 struct Angular {
   template<typename S, typename T>
@@ -296,10 +287,10 @@ struct Angular {
       return random.flip();
   }
   template<typename S, typename T, typename Random>
-  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n, size_t centroidi, size_t centroidj) {
+  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n) {
     Node<S, T>* p = (Node<S, T>*)malloc(s); // TODO: avoid
     Node<S, T>* q = (Node<S, T>*)malloc(s); // TODO: avoid
-    two_means<T, Random, Angular, Node<S, T> >(nodes, f, random, true, p, q, centroidi, centroidj);
+    two_means<T, Random, Angular, Node<S, T> >(nodes, f, random, true, p, q);
     for (int z = 0; z < f; z++)
       n->v[z] = p->v[z] - q->v[z];
     normalize(n->v, f);
@@ -334,147 +325,89 @@ struct Angular {
   }
 };
 
-
-/*struct Blos_ham {
+struct Hamming {
   template<typename S, typename T>
   struct ANNOY_NODE_ATTRIBUTE Node {
     S n_descendants;
-    int amino_acid; //stores random amino acid 
     S children[2];
-    T v[1]; //stores index of random dimension 
-   
-    
+    T v[1];
   };
-  static const int num_amino_acids = 24; 
+
   static const size_t max_iterations = 20;
-  static const float blosum_threshold = -1; 
-  static const float scores62 [num_amino_acids] [num_amino_acids];
-  
 
   template<typename T>
   static inline T pq_distance(T distance, T margin, int child_nr) {
-    //margin is really the blosum similarity, distance is pq parent distance
-    //below are the four main cases that should be considered 
-    if (child_nr == 1 && margin >= 0) {
-      //we know that similar peptides will be in the right tree
-      return distance - margin; 
-    }
-    if (child_nr == 1 && margin < 0) {
-      //we're not sure which side will have the most similar peptides
-      return distance; //could also return distance-1
-    } 
-    if(child_nr == 0 && margin < 0) {
-      //we're not sure which side will have the most similar peptides
-      return distance; //could also return distance - 1 
-    }
-    if(child_nr == 0 && margin >= 0) {
-      //we know that similar peptides will be in the right tree 
-      return distance + margin; //could also return distance
-    }
-    return distance; //will always return before this 
+    return distance - (margin != (unsigned int) child_nr);
   }
 
   template<typename T>
   static inline T pq_initial_value() {
-    return 50,000;
+    return numeric_limits<T>::max();
   }
-
-  template<typename S, typename T>
-  static inline T margin(const Node<S, T>* n, const T* y, int f) {
-    //margin returns the blosum similarity between the internal 
-    //node's random amino acid and the input vector's amino acid
-    //in the same dimension 
-    //this may offer a better splitting point to use in side then trying to find a centroid
-    int dim = (int) n->v[0];
-    return scores62[n->amino_acid][(int) y[dim]]; 
-  }
-
-  template<typename S, typename T, typename Random>
-  static inline bool side(const Node<S, T>* n, const T* y, int f, Random& random) {
-    //the margin (blosum sim between two amino acids) is compared to a certain 
-    //blosum threshold (can be tuned to whatever makes most sense based on the matrix)
-    //to determine the side of the split 
-    //T mgn = margin(n, y, f); 
-    //bool side; 
-    if (margin(n, y, f) > blosum_threshold) {
-      return true; //more similar peptides are placed on the right side 
-    } else {
-      return false; 
-    }
-    //if(__verbose) showUpdate("side: %d, margin: %g \n", side, mgn); 
-    
-  }
-
-  template<typename S, typename T, typename Random>
-  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n) {
-    for (size_t i = 0; i < max_iterations; i++) {
-      //picks random dimension index for internal node; will use this dimension for comparisons with input
-      n->v[0] = random.index(f); 
-      n->amino_acid = random.index(num_amino_acids); //picks random amino acid for internal node
-     
-     int right_side = 0; 
-     int left_side = 0; 
-     for (typename vector<Node<S, T>*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
-      if (side(n, (*it)->v, f, random)) {
-        right_side++;  
-      } else {
-        left_side++; 
-      }
-     }
-     if (right_side > 0 && left_side > 0) {
-      return; //split has been found 
-     }
-    } 
-    // brute-force search for splitting coordinate
-     
-    for(size_t j = 0; j < f; j++) {
-      for (int a = 0; a < num_amino_acids; a++) {
-        int right_side = 0; 
-        int left_side = 0; 
-        for (typename vector<Node<S, T>*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
-          if (side(n, (*it)->v, f,random)) {
-           right_side++;  
-          } else {
-            left_side++; 
-          }
-        }
-        if (right_side || left_side) {
-        return; //split has been found 
-        }
-      }
-  
-     }
-    }
-  
   template<typename S, typename T>
   static inline T distance(const Node<S, T>* x, const Node<S, T>* y, int f) {
-    //distance is no longer related to margin 
-    //this can be changed to whatever makes most sense/is most useful for the user
-    T blosum_sim = 0;
-    T score1 = 0, score2 = 0; 
+    size_t dist = 0;
     for (int i = 0; i < f; i++) {
-      score1 += scores62[(int) x->v[i]][(int) x->v[i]];
-      score2 += scores62[(int) y->v[i]][(int) y->v[i]];      
-      blosum_sim += scores62[(int) x->v[i]][(int) y->v[i]];
+      dist += popcount(x->v[i] ^ y->v[i]);
     }
-    return (std::max(score1, score2)- blosum_sim);
+    return dist;
   }
-
+  template<typename S, typename T>
+  static inline bool margin(const Node<S, T>* n, const T* y, int f) {
+    static const size_t n_bits = sizeof(T) * 8;
+    T chunk = n->v[0] / n_bits;
+    return (y[chunk] & (static_cast<T>(1) << (n_bits - 1 - (n->v[0] % n_bits)))) != 0;
+  }
+  template<typename S, typename T, typename Random>
+  static inline bool side(const Node<S, T>* n, const T* y, int f, Random& random) {
+    return margin(n, y, f);
+  }
+  template<typename S, typename T, typename Random>
+  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n) {
+    size_t cur_size = 0;
+    size_t i = 0;
+    int dim = f * 8 * sizeof(T);
+    for (; i < max_iterations; i++) {
+      // choose random position to split at
+      n->v[0] = random.index(dim);
+      cur_size = 0;
+      for (typename vector<Node<S, T>*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
+        if (margin(n, (*it)->v, f)) {
+          cur_size++;
+        }
+      }
+      if (cur_size > 0 && cur_size < nodes.size()) {
+        break;
+      }
+    }
+    // brute-force search for splitting coordinate
+    if (i == max_iterations) {
+      int j = 0;
+      for (; j < dim; j++) {
+        n->v[0] = j;
+        cur_size = 0;
+	for (typename vector<Node<S, T>*>::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
+          if (margin(n, (*it)->v, f)) {
+            cur_size++;
+          }
+        }
+        if (cur_size > 0 && cur_size < nodes.size()) {
+          break;
+        }
+      }
+    }
+  }
   template<typename T>
   static inline T normalized_distance(T distance) {
     return distance;
   }
-
   template<typename S, typename T>
   static inline void init_node(Node<S, T>* n, int f) {
-
   }
-
   static const char* name() {
-    return "blos_ham";
+    return "hamming";
   }
-
-};*/
+};
 
 
 struct Minkowski {
@@ -521,10 +454,10 @@ struct Euclidean : Minkowski{
     return pp + qq - 2*pq;
   }
   template<typename S, typename T, typename Random>
-  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n, size_t centroidi, size_t centroidj) {
+  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n) {
     Node<S, T>* p = (Node<S, T>*)malloc(s); // TODO: avoid
     Node<S, T>* q = (Node<S, T>*)malloc(s); // TODO: avoid
-    two_means<T, Random, Euclidean, Node<S, T> >(nodes, f, random, false, p, q, centroidi, centroidj);
+    two_means<T, Random, Euclidean, Node<S, T> >(nodes, f, random, false, p, q);
     for (int z = 0; z < f; z++)
       n->v[z] = p->v[z] - q->v[z];
     normalize(n->v, f);
@@ -553,79 +486,71 @@ struct Blosum{
     S n_descendants;
     S children[2];
     T v[1];
-    
-    
   };
-  static const int num_amino_acids = 25; 
-  static const size_t max_iterations = 200;
+  static const int num_amino_acids = 24; 
+  static const size_t max_iterations = 20;
   static const float scores62 [num_amino_acids] [num_amino_acids];
-  static vector<vector<float> > scores;
 
   template<typename T>
   static inline T pq_distance(T distance, T margin, int child_nr) {
+    if (child_nr == 0)
+      margin = -margin;
     return std::min(distance, margin);
   }
   
 
   template<typename S, typename T, typename Random>
-  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n, size_t centroidi, size_t centroidj) {
+  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n) {
     Node<S, T>* p = (Node<S, T>*)malloc(s); // TODO: avoid
     Node<S, T>* q = (Node<S, T>*)malloc(s); // TODO: avoid
-    two_means<T, Random, Blosum, Node<S, T> >(nodes, f, random, false, p, q, centroidi, centroidj); 
-    for(int i = 0; i < f; i++) {
-      n->v[i] = static_cast <int> ((p->v[i] + q->v[i])/2);
-    }
-
-
-    if (__verbose) showUpdate("create split: \n"); 
-    
+    two_means<T, Random, Blosum, Node<S, T> >(nodes, f, random, false, p, q); //does this work?
+    for (int z = 0; z < f; z++)
+      n->v[z] = p->v[z] - q->v[z];
+    normalize(n->v, f);
+    n->a = 0.0;
+    for (int z = 0; z < f; z++)
+      n->a += -n->v[z] * (p->v[z] + q->v[z]) / 2;
     free(p);
     free(q);
   }
 
   template<typename T>
   static inline T pq_initial_value() {
-    return 50000; // TODO: define the max for blosum
+    return numeric_limits<T>::infinity(); // define the max for blosum
   }
 
   template<typename S, typename T>
   static inline T distance(const Node<S, T>* x, const Node<S, T>* y, int f) {
-    return blosum_distance(x->v, y->v, f); 
+    T blosum_dist = 0;
+    T max_dist = 0; 
+    for (int i = 0; i < f; i++) {
+      max_dist += std:: max(scores62[(int) x->v[i]][(int) x->v[i]], scores62[(int) y->v[i]][(int) y->v[i]]);      
+      blosum_dist += scores62[(int) x->v[i]][(int) y->v[i]];
+    }
+    return max_dist - blosum_dist;
   }
 
   template<typename S, typename T>
   static inline T margin(const Node<S, T>* n, const T* y, int f) {
-    return blosum_distance(n->v, y, f); 
-  }
-
-  template<typename T> 
-  static inline T blosum_distance(const T* u, const T* v, int f) {
-    T blosum_sim = 0;
-    T score1 = 0, score2 = 0; 
+    //implements blosum distance 
+    T dist = 0;
     for (int i = 0; i < f; i++) {
-      score1 += scores62[(int) u[i]][(int) u[i]]; 
-      score2 += scores62[(int) v[i]][(int) v[i]];   
-      blosum_sim += scores62[(int) u[i]][(int) v[i]];
+      dist += scores62[(int) n->v[i]][(int) y[i]]; 
     }
-    return (std::max(score1, score2)- blosum_sim);
+    return dist;
   }
 
-  /*template<typename S, typename T, typename Random>
+  template<typename S, typename T, typename Random>
   static inline bool side(const Node<S, T>* n, const T* y, int f, Random& random) {   
-    T blosum_q = blosum_distance(n->q, y, f); 
-    T blosum_p = blosum_distance(n->p, y, f); 
-    bool side = blosum_q < blosum_p;
-    if (__verbose) showUpdate("p: %g, q: %g, side: %d \n", blosum_p, blosum_q, side); 
-    return side; 
-    
-  }*/
+    return margin(n, y, f) > 0;
+  }
   template<typename T>
   static inline T normalized_distance(T distance) {
     return distance;
   }
   template<typename S, typename T>
   static inline void init_node(Node<S, T>* n, int f) {
-
+    
   }
   static const char* name() {
     return "blosum";
@@ -638,10 +563,10 @@ struct Manhattan : Minkowski{
     return manhattan_distance(x->v, y->v, f);
   }
   template<typename S, typename T, typename Random>
-  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n, size_t centroidi, size_t centroidj) {
+  static inline void create_split(const vector<Node<S, T>*>& nodes, int f, size_t s, Random& random, Node<S, T>* n) {
     Node<S, T>* p = (Node<S, T>*)malloc(s); // TODO: avoid
     Node<S, T>* q = (Node<S, T>*)malloc(s); // TODO: avoid
-    two_means<T, Random, Manhattan, Node<S, T> >(nodes, f, random, false, p, q, centroidi, centroidj);
+    two_means<T, Random, Manhattan, Node<S, T> >(nodes, f, random, false, p, q);
 
     for (int z = 0; z < f; z++)
       n->v[z] = p->v[z] - q->v[z];
@@ -747,15 +672,12 @@ public:
   }
 
   void build(int q) {
-    if (_verbose) showUpdate("building \n"); //TODO: remove
     if (_loaded) {
       // TODO: throw exception
       showUpdate("You can't build a loaded index\n");
       return;
     }
     _n_nodes = _n_items;
-    if (_verbose) showUpdate("before building n_nodes = %d \n", _n_nodes); 
-    showUpdate("before building n_nodes = %d \n", _n_nodes); 
     while (1) {
       if (q == -1 && _n_nodes >= _n_items * 2) 
         break;
@@ -763,15 +685,12 @@ public:
         break;
       if (_verbose) showUpdate("pass %zd...\n", _roots.size());
 
-// TODO: remove
-      showUpdate("pass %zd...\n", _roots.size());
-
       vector<S> indices;
       for (S i = 0; i < _n_items; i++) {
-        if (_get(i)->n_descendants >= 1) // Issue #223 
-                indices.push_back(i);
+	if (_get(i)->n_descendants >= 1) // Issue #223
+          indices.push_back(i);
       }
-    
+
       _roots.push_back(_make_tree(indices, true)); //make tree called with vector w/ all item #s
     }
     // Also, copy the roots into the last segment of the array
@@ -781,11 +700,7 @@ public:
       memcpy(_get(_n_nodes + (S)i), _get(_roots[i]), _s);
     _n_nodes += _roots.size();
 
-    if (_verbose) showUpdate("has %d nodes\n", _n_nodes); 
-    showUpdate("has %d nodes\n", _n_nodes); 
-
-    if (_verbose) showUpdate("finished building \n"); 
-    showUpdate("finished building \n"); 
+    if (_verbose) showUpdate("has %d nodes\n", _n_nodes);
   }
   
   void unbuild() {
@@ -889,7 +804,6 @@ public:
   }
   void verbose(bool v) {
     _verbose = v;
-    __verbose = v; 
   }
 
   void get_item(S item, T* v) {
@@ -906,7 +820,7 @@ protected:
     if (n > _nodes_size) {
       const double reallocation_factor = 1.3;
       S new_nodes_size = std::max(n,
-          (S)((_nodes_size + 1) * reallocation_factor));
+				  (S)((_nodes_size + 1) * reallocation_factor));
       if (_verbose) showUpdate("Reallocating to %d nodes\n", new_nodes_size);
       _nodes = realloc(_nodes, _s * new_nodes_size);
       memset((char *)_nodes + (_nodes_size * _s)/sizeof(char), 0, (new_nodes_size - _nodes_size) * _s);
@@ -924,7 +838,6 @@ protected:
     // 1. We identify root nodes by the arguable logic that _n_items == n->n_descendants, regardless of how many descendants they actually have
     // 2. Root nodes with only 1 child need to be a "dummy" parent
     // 3. Due to the _n_items "hack", we need to be careful with the cases where _n_items <= _K or _n_items > _K
-    
     if (indices.size() == 1 && !is_root)
       return indices[0];
 
@@ -940,10 +853,6 @@ protected:
       // probably because gcc 4.8 goes overboard with optimizations.
       // Using memcpy instead of std::copy for MSVC compatibility. #235
       memcpy(m->children, &indices[0], indices.size() * sizeof(S));
-      if (indices[0] == 1) {
-        if (_verbose) showUpdate("leaf node index: %d\n", item); //TODO: remove 
-
-      }
       return item;
     }
 
@@ -957,28 +866,20 @@ protected:
 
     vector<S> children_indices[2];
     Node* m = (Node*)malloc(_s); // TODO: avoid 
-    size_t* centrds = centroids(children, _random);
-    if (_verbose) showUpdate("children size: %d \n", children.size());
-    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d \n", centrds[0], centrds[1]); 
+    //malloc is like new() in C++
+    D::create_split(children, _f, _s, _random, m);
 
-    D::create_split(children, _f, _s, _random, m, centrds[0], centrds[1]);
-    
     for (size_t i = 0; i < indices.size(); i++) {
       S j = indices[i];
       Node* n = _get(j);
       if (n) {
-        //showUpdate("i: %d \n", (int)i); 
-        bool side = (Distance::distance(n, children[centrds[0]], _f) > Distance::distance(n, children[centrds[1]], _f));
-        children_indices[side].push_back(j); //adds index
+        bool side = D::side(m, n->v, _f, _random);
+        children_indices[side].push_back(j); //adds inde
       }
     }
-    free(centrds);
-    if (_verbose) showUpdate("finished calling side on this node \n");
 
     // If we didn't find a hyperplane, just randomize sides as a last option
-    bool failed = false; 
     while (children_indices[0].size() == 0 || children_indices[1].size() == 0) {
-      failed = true; 
       if (_verbose && indices.size() > 100000)
         showUpdate("Failed splitting %lu items\n", indices.size());
 
@@ -995,17 +896,13 @@ protected:
         children_indices[_random.flip()].push_back(j);
       }
     }
-    if (failed) {
-       if (_verbose) showUpdate("setting all dimensions of n->v to 0, num of indices to split: %lu \n", indices.size()); 
-    }
 
     int flip = (children_indices[0].size() > children_indices[1].size());
 
     m->n_descendants = is_root ? _n_items : (S)indices.size();
-    for (int side = 0; side < 2; side++) {
+    for (int side = 0; side < 2; side++)
       // run _make_tree for the smallest child first (for cache locality)
       m->children[side^flip] = _make_tree(children_indices[side^flip], false);
-    }
 
     _allocate_size(_n_nodes + 1);
     S item = _n_nodes++;
@@ -1016,7 +913,6 @@ protected:
   }
 
   void _get_all_nns(const T* v, size_t n, size_t search_k, vector<S>* result, vector<T>* distances) {
-    if (_verbose) showUpdate("======================\n"); // TODO: remove
     Node* v_node = (Node *)malloc(_s); // TODO: avoid
     memcpy(v_node->v, v, sizeof(T)*_f);
     D::init_node(v_node, _f);
@@ -1027,6 +923,7 @@ protected:
       search_k = n * _roots.size(); // slightly arbitrary default value
 
     for (size_t i = 0; i < _roots.size(); i++) {
+      //pushes roots nodes in by priority 
       q.push(make_pair(Distance::template pq_initial_value<T>(), _roots[i]));
     }
 
@@ -1037,35 +934,22 @@ protected:
       T d = top.first;
       S i = top.second;
       Node* nd = _get(i);
-      if (_verbose) showUpdate("second = %d, nd = %p \n", i, nd); 
-      //showUpdate(">node index: %d, pq_distance: %g \n", i, d); //TODO: remove
       q.pop(); //pop the highest priority node off
       if (nd->n_descendants == 1 && i < _n_items) {
         nns.push_back(i); //if the max depth is reached (the last node) add it to the nns
-        //showUpdate(">added nn index: %d \n", i); //TODO: remove
-        if (_verbose) showUpdate("in first if statement \n"); 
-        if (_verbose) showUpdate(">added nn index: %d \n", i); //TODO: remove
       } else if (nd->n_descendants <= _K) { 
       //otherwise if you're in the middle of tree but have reached the max depth, insert the children nodes
         const S* dst = nd->children;
         nns.insert(nns.end(), dst, &dst[nd->n_descendants]);
-        if (_verbose) showUpdate("in if statement for n_descendants <= K \n"); 
-        if (_verbose) showUpdate("nd->n_descendants %d \n", nd->n_descendants);
-        for(int h = 0; h < nd->n_descendants; h++) 
-          if (_verbose) showUpdate(">added nn index: %d \n", dst[h]); 
-
-        //for(int h = 0; h < nd->n_descendants; h++) 
-         // showUpdate(">added nn index: %d \n", dst[h]); 
       } else {
-        if (_verbose) showUpdate("in else statement get all nns \n"); 
+        //otherwise, insert the children into the priority  queue and use the pq distance to optimize where
+        //you place them, because d is big, the other nodes will get pushed to the right
         T margin = D::margin(nd, v, _f);
-        if (_verbose) showUpdate("margin: %g \n", margin); 
         ///pushes in the pq distances by priority 
         q.push(make_pair(D::pq_distance(d, margin, 1), nd->children[1]));
         q.push(make_pair(D::pq_distance(d, margin, 0), nd->children[0]));
       }
     }
-    if (_verbose) showUpdate("get all nns while loop finished \n"); 
 
     // Get distances for all items
     // To avoid calculating distance multiple times for any items, sort by id
@@ -1078,7 +962,7 @@ protected:
         continue;
       last = j;
       if (_get(j)->n_descendants == 1)  // This is only to guard a really obscure case, #284
-  nns_dist.push_back(make_pair(D::distance(v_node, _get(j), _f), j));
+	nns_dist.push_back(make_pair(D::distance(v_node, _get(j), _f), j));
     }
 
     size_t m = nns_dist.size();

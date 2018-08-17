@@ -129,8 +129,6 @@ public:
    
   };
 
-  vector<vector<float> > Blosum::scores;
-
   /*const float Blos_ham::scores62 [Blos_ham::num_amino_acids] [Blos_ham::num_amino_acids] = {
     {4, -1, -2, -2, 0, -1, -1, 0, -2, -1, -1, -1, -1, -2, -1, 1, 0, -3, -2, 0, -2, -1, 0, -4},
     {-1, 5, 0, -2, -3, 1, 0, -2, 0, -3, -2, 2, -1, -3, -2, -1, -1, -3, -2, -3, -1, 0, -1, -4},
@@ -296,15 +294,6 @@ bool check_constraints(py_annoy *self, int32_t item, bool building) {
   }
 }
 
-bool check_constraints_blosum(py_annoy *self, int32_t num_amino_acids) {
-  if (num_amino_acids <= 0) {
-    PyErr_SetString(PyExc_IndexError, "Number of amino acids can't be less than or equal to zero");
-    return false; 
-  }
-  return true; 
-
-}
-
 static PyObject* 
 py_an_get_nns_by_item(py_annoy *self, PyObject *args, PyObject *kwargs) {
   int32_t item, n, search_k=-1, include_distances=0;
@@ -340,23 +329,6 @@ convert_list_to_vector(PyObject* v, int f, vector<float>* w) {
     PyObject *key = PyInt_FromLong(z);
     PyObject *pf = PyObject_GetItem(v, key);
     (*w)[z] = PyFloat_AsDouble(pf);
-    Py_DECREF(key);
-    Py_DECREF(pf);
-  }
-  return true;
-}
-
-//modifed to have (float) PyFloat_AsDouble for the set blosum matrix method 
-bool
-convert_list_to_vector_blosum(PyObject* v, int f, vector<float>* w) {
-  if (PyObject_Size(v) != f) {
-    PyErr_SetString(PyExc_IndexError, "Vector has wrong length");
-    return false;
-  }
-  for (int z = 0; z < f; z++) {
-    PyObject *key = PyInt_FromLong(z);
-    PyObject *pf = PyObject_GetItem(v, key);
-    (*w)[z] = (float) PyFloat_AsDouble(pf);
     Py_DECREF(key);
     Py_DECREF(pf);
   }
@@ -532,41 +504,6 @@ py_an_set_seed(py_annoy *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
-static PyObject * 
-py_an_set_blosum_matrix(py_annoy *self, PyObject *args,PyObject* kwargs) {
-  vector<vector<float> > blosum_scores;
-  PyObject* blosum_matrix;
-  int32_t num_amino_acids;
-  if (!self->ptr) 
-    return NULL;
-  static char const * kwlist[] = {"f", "vector", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "iO", (char**)kwlist, &num_amino_acids, &blosum_matrix))
-    return NULL;
-  if (!check_constraints_blosum(self, num_amino_acids)) 
-    return NULL;
-
-  for (int z = 0; z < num_amino_acids; z++) {
-    PyObject *key = PyInt_FromLong(z);
-    PyObject *blosum_row = PyObject_GetItem(blosum_matrix, key);
-
-    vector<float> w(num_amino_acids);
-    if (!convert_list_to_vector_blosum(blosum_row, num_amino_acids, &w)) {
-      Py_DECREF(key);
-      Py_DECREF(blosum_row);
-      return NULL;
-
-    }
-
-    blosum_scores.push_back(w); 
-    Py_DECREF(key);
-    Py_DECREF(blosum_row);
-
-  }
-  self->ptr->set_blosum_matrix(blosum_scores); 
-  //Blosum::scores = blosum_scores; 
-  
-}
-
 static PyMethodDef AnnoyMethods[] = {
   {"load",	(PyCFunction)py_an_load, METH_VARARGS | METH_KEYWORDS, "Loads (mmaps) an index from disk."},
   {"save",	(PyCFunction)py_an_save, METH_VARARGS | METH_KEYWORDS, "Saves the index to disk."},
@@ -581,7 +518,6 @@ static PyMethodDef AnnoyMethods[] = {
   {"get_n_items",(PyCFunction)py_an_get_n_items, METH_NOARGS, "Returns the number of items in the index."},
   {"verbose",(PyCFunction)py_an_verbose, METH_VARARGS, ""},
   {"set_seed",(PyCFunction)py_an_set_seed, METH_VARARGS, "Sets the seed of Annoy's random number generator."},
-  {"set_blosum_matrix",(PyCFunction)py_an_set_blosum_matrix, METH_VARARGS | METH_KEYWORDS, "Sets the blosum matrix specified by the user as an instance variable in the annoy index."},
   {NULL, NULL, 0, NULL}		 /* Sentinel */
 };
 

@@ -278,6 +278,12 @@ static int lua_an_make(lua_State* L) {
   } else if (strcmp(metric, "manhattan") == 0) {
     LuaAnnoy<Manhattan>::createNew(L, f);
     return 1;
+  } else if (strcmp(metric, "blosum") == 0) {
+    LuaAnnoy<Blosum>::createNew(L, f);
+    return 1;
+  } else if (strcmp(metric, "blos_ham") == 0) {
+    LuaAnnoy<Blos_ham>::createNew(L, f);
+    return 1;
   } else {
     return luaL_error(L, "Unknown metric: %s", metric);
   }

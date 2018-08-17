@@ -551,15 +551,16 @@ struct Blosum{
   template<typename S, typename T>
   struct ANNOY_NODE_ATTRIBUTE Node {
     S n_descendants;
+    //T p[20]; //num > dimensions  
+   // T q[20]; 
     S children[2];
     T v[1];
     
     
   };
-  static const int num_amino_acids = 25; 
+  static const int num_amino_acids = 24; 
   static const size_t max_iterations = 200;
   static const float scores62 [num_amino_acids] [num_amino_acids];
-  static vector<vector<float> > scores;
 
   template<typename T>
   static inline T pq_distance(T distance, T margin, int child_nr) {
@@ -573,6 +574,8 @@ struct Blosum{
     Node<S, T>* q = (Node<S, T>*)malloc(s); // TODO: avoid
     two_means<T, Random, Blosum, Node<S, T> >(nodes, f, random, false, p, q, centroidi, centroidj); 
     for(int i = 0; i < f; i++) {
+      //n->p[i] = p->v[i]; 
+      //n->q[i] = q->v[i]; 
       n->v[i] = static_cast <int> ((p->v[i] + q->v[i])/2);
     }
 
@@ -585,7 +588,7 @@ struct Blosum{
 
   template<typename T>
   static inline T pq_initial_value() {
-    return 50000; // TODO: define the max for blosum
+    return 50,000; // TODO: define the max for blosum
   }
 
   template<typename S, typename T>
@@ -755,7 +758,6 @@ public:
     }
     _n_nodes = _n_items;
     if (_verbose) showUpdate("before building n_nodes = %d \n", _n_nodes); 
-    showUpdate("before building n_nodes = %d \n", _n_nodes); 
     while (1) {
       if (q == -1 && _n_nodes >= _n_items * 2) 
         break;
@@ -763,15 +765,12 @@ public:
         break;
       if (_verbose) showUpdate("pass %zd...\n", _roots.size());
 
-// TODO: remove
-      showUpdate("pass %zd...\n", _roots.size());
-
       vector<S> indices;
       for (S i = 0; i < _n_items; i++) {
-        if (_get(i)->n_descendants >= 1) // Issue #223 
-                indices.push_back(i);
+  if (_get(i)->n_descendants >= 1) // Issue #223
+          indices.push_back(i);
       }
-    
+
       _roots.push_back(_make_tree(indices, true)); //make tree called with vector w/ all item #s
     }
     // Also, copy the roots into the last segment of the array
@@ -782,10 +781,7 @@ public:
     _n_nodes += _roots.size();
 
     if (_verbose) showUpdate("has %d nodes\n", _n_nodes); 
-    showUpdate("has %d nodes\n", _n_nodes); 
-
     if (_verbose) showUpdate("finished building \n"); 
-    showUpdate("finished building \n"); 
   }
   
   void unbuild() {
@@ -924,7 +920,6 @@ protected:
     // 1. We identify root nodes by the arguable logic that _n_items == n->n_descendants, regardless of how many descendants they actually have
     // 2. Root nodes with only 1 child need to be a "dummy" parent
     // 3. Due to the _n_items "hack", we need to be careful with the cases where _n_items <= _K or _n_items > _K
-    
     if (indices.size() == 1 && !is_root)
       return indices[0];
 
@@ -959,7 +954,7 @@ protected:
     Node* m = (Node*)malloc(_s); // TODO: avoid 
     size_t* centrds = centroids(children, _random);
     if (_verbose) showUpdate("children size: %d \n", children.size());
-    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d \n", centrds[0], centrds[1]); 
+    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d", centrds[0], centrds[1]); 
 
     D::create_split(children, _f, _s, _random, m, centrds[0], centrds[1]);
     
@@ -1005,6 +1000,21 @@ protected:
     for (int side = 0; side < 2; side++) {
       // run _make_tree for the smallest child first (for cache locality)
       m->children[side^flip] = _make_tree(children_indices[side^flip], false);
+      /*if (children_indices[side^flip][0] == 1) { //TODO: remove
+        std::vector <T> epitope;
+         epitope.push_back(12);
+         epitope.push_back(11);
+         epitope.push_back(11);
+         epitope.push_back(19);
+         epitope.push_back(16);
+         epitope.push_back(0);
+         epitope.push_back(6);
+         epitope.push_back(0);
+        T mgn = D::margin(m, epitope.data(), _f); 
+        for (int hh = 0; hh < _f; hh++)
+          showUpdate("%g ", m->v[hh]);
+        showUpdate("node index : %d, margin: %g \n", m->children[side^flip], mgn); //TODO: remove
+      }*/
     }
 
     _allocate_size(_n_nodes + 1);
@@ -1027,6 +1037,7 @@ protected:
       search_k = n * _roots.size(); // slightly arbitrary default value
 
     for (size_t i = 0; i < _roots.size(); i++) {
+      //pushes roots nodes in by priority 
       q.push(make_pair(Distance::template pq_initial_value<T>(), _roots[i]));
     }
 
