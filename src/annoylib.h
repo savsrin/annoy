@@ -197,9 +197,8 @@ template<typename Node, typename Random>
 inline size_t* centroids(const vector<Node*>& nodes, Random& random) {
   size_t* ret = (size_t*) malloc(2*sizeof(size_t));
   size_t count = nodes.size();
-  ret[0] = random.index(count);//random.index(count);
-  ret[1] = random.index(count -1);//random.index(count-1); 
-  //size_t ret[2] = {random.index(count), random.index(count-1)};
+  ret[0] = random.index(count);
+  ret[1] = random.index(count -1);
   ret[1] += (ret[1] >= ret[0]);
   return ret;
 }
