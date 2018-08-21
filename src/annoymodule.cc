@@ -50,7 +50,7 @@ private:
     for (int32_t i = 0; i < _f_internal; i++) {
       dst[i] = 0;
       for (int32_t j = 0; j < 64 && i*64+j < _f_external; j++) {
-	dst[i] |= (uint64_t)(src[i * 64 + j] > 0.5) << j;
+  dst[i] |= (uint64_t)(src[i * 64 + j] > 0.5) << j;
       }
     }
   };
@@ -129,40 +129,45 @@ public:
    
   };
 
-  /*const float Blos_ham::scores62 [Blos_ham::num_amino_acids] [Blos_ham::num_amino_acids] = {
-    {4, -1, -2, -2, 0, -1, -1, 0, -2, -1, -1, -1, -1, -2, -1, 1, 0, -3, -2, 0, -2, -1, 0, -4},
-    {-1, 5, 0, -2, -3, 1, 0, -2, 0, -3, -2, 2, -1, -3, -2, -1, -1, -3, -2, -3, -1, 0, -1, -4},
-    {-2, 0, 6, 1, -3, 0, 0, 0, 1, -3, -3, 0, -2, -3, -2, 1, 0, -4, -2, -3, 3, 0, -1, -4}, 
-    {-2, -2, 1, 6, -3, 0, 2, -1, -1, -3, -4, -1, -3, -3, -1, 0, -1, -4, -3, -3, 4, 1, -1, -4},  
-    {0, -3, -3, -3, 9, -3, -4, -3, -3, -1, -1, -3, -1, -2, -3, -1, -1, -2, -2, -1, -3, -3, -2, -4},
-    {-1, 1, 0, 0, -3, 5, 2, -2, 0, -3, -2, 1, 0, -3, -1, 0, -1, -2, -1, -2, 0, 3, -1, -4}, 
-    {-1, 0, 0, 2, -4, 2, 5, -2, 0, -3, -3, 1, -2, -3, -1, 0, -1, -3, -2, -2, 1, 4, -1, -4},
-    {0, -2, 0, -1, -3, -2, -2, 6, -2, -4, -4, -2, -3, -3, -2, 0, -2, -2, -3, -3, -1, -2, -1, -4},
-    {-2, 0, 1, -1, -3, 0, 0, -2, 8, -3, -3, -1, -2, -1, -2, -1, -2, -2, 2, -3, 0, 0, -1, -4},
-    {-1, -3, -3, -3, -1, -3, -3, -4, -3, 4, 2, -3, 1, 0, -3, -2, -1, -3, -1, 3, -3, -3, -1, -4},
-    {-1, -2, -3, -4, -1, -2, -3, -4, -3,  2, 4, -2, 2, 0, -3, -2, -1, -2, -1, 1, -4, -3, -1, -4},
-    {-1, 2, 0, -1, -3, 1, 1, -2, -1, -3, -2, 5, -1, -3, -1, 0, -1, -3, -2, -2, 0, 1, -1 -4},
-    {-1, -1, -2, -3, -1, 0, -2, -3, -2, 1, 2, -1, 5, 0, -2, -1, -1, -1, -1, 1, -3, -1, -1, -4},
-    {-2, -3, -3, -3, -2, -3, -3, -3, -1, 0, 0, -3, 0, 6, -4, -2, -2, 1, 3, -1, -3, -3, -1, -4},
-    {-1, -2, -2, -1, -3, -1, -1, -2, -2, -3, -3, -1, -2, -4, 7, -1, -1, -4, -3, -2, -2, -1, -2, -4},
-    {1, -1, 1, 0, -1, 0, 0, -1, -2, -2, 0, -1, -2, -1, 4, 1, -3, -2, -2, 0, 0, 0, -4},
-    {0, -1, 0, -1, -1, -1, -1, -2, -2, -1, -1, -1, -1, -2, -1, 1, 5, -2, -2, 0, -1, -1, 0, -4},
-    {-3, -3, -4, -4, -2, -2, -3, -2, -2, -3, -2, -3, -1, 1, -4, -3, -2, 11, 2, -3, -4, -3, -2, -4},
-    {-2, -2, -2, -3, -2, -1, -2, -3, 2, -1, -1, -2, -1, 3, -3, -2, -2, 2, 7, -1, -3, -2, -1, -4},
-    {0, -3, -3, -3, -1, -2, -2, -3, -3, 3, 1, -2, 1, -1, -2, -2, 0, -3, -1, 4, -3, -2, -1, -4},
-    {-2, -1, 3, 4, -3, 0, 1, -1, 0, -3, -4, 0, -3, -3, -2, 0, -1, -4, -3, -3, 4, 1, -1, -4},
-    {-1, 0, 0, 1, -3, 3, 4, -2, 0, -3, -3, 1, -1, -3, -1, 0, -1, -3, -2, -2, 1, 4, -1, -4},
-    {0, -1, -1, -1, -2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -2, 0, 0, -2, -1, -1, -1, -1, -1, -4},
-    {0, -1, -1, -1, -2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -2, 0, 0, -2, -1, -1, -1, -1, -1, -4}
-   
-  };*/
+
 // annoy python object
 typedef struct {
   PyObject_HEAD
   int f;
   AnnoyIndexInterface<int32_t, float>* ptr;
 } py_annoy;
+bool
+convert_list_to_vector(PyObject* v, int f, vector<float>* w) {
+  if (PyObject_Size(v) != f) {
+    PyErr_SetString(PyExc_IndexError, "Vector has wrong length");
+    return false;
+  }
+  for (int z = 0; z < f; z++) {
+    PyObject *key = PyInt_FromLong(z);
+    PyObject *pf = PyObject_GetItem(v, key);
+    (*w)[z] = PyFloat_AsDouble(pf);
+    Py_DECREF(key);
+    Py_DECREF(pf);
+  }
+  return true;
+}
 
+//modifed to have (float) PyFloat_AsDouble for the set blosum matrix method 
+bool
+convert_list_to_vector_blosum(PyObject* v, int f, vector<float>* w) {
+  if (PyObject_Size(v) != f) {
+    PyErr_SetString(PyExc_IndexError, "Vector has wrong length");
+    return false;
+  }
+  for (int z = 0; z < f; z++) {
+    PyObject *key = PyInt_FromLong(z);
+    PyObject *pf = PyObject_GetItem(v, key);
+    (*w)[z] = (float) PyFloat_AsDouble(pf);
+    Py_DECREF(key);
+    Py_DECREF(pf);
+  }
+  return true;
+}
 
 static PyObject *
 py_an_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
@@ -171,9 +176,13 @@ py_an_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
     return NULL;
   }
   const char *metric = NULL;
+  PyObject* scores;
+  PyObject* weights; 
+  int32_t num_amino_acids;
+ 
 
-  static char const * kwlist[] = {"f", "metric", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|s", (char**)kwlist, &self->f, &metric))
+  static char const * kwlist[] = {"f", "metric", "num_amino_acids", "weights", "scores", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|siOO", (char**)kwlist, &self->f, &metric, &num_amino_acids, &weights, &scores))
     return NULL;
   if (!metric || !strcmp(metric, "angular")) {
    self->ptr = new AnnoyIndex<int32_t, float, Angular, Kiss64Random>(self->f);
@@ -182,10 +191,37 @@ py_an_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
   } else if (!strcmp(metric, "manhattan")) {
     self->ptr = new AnnoyIndex<int32_t, float, Manhattan, Kiss64Random>(self->f);
   } else if (!strcmp(metric, "blosum")) {
-    self->ptr = new AnnoyIndex<int32_t, float, Blosum, Kiss64Random>(self->f);  
-  }/* else if (!strcmp(metric, "blos_ham")) {
-    self->ptr = new AnnoyIndex<int32_t, float, Blos_ham, Kiss64Random>(self->f); 
-  } else if (!strcmp(metric, "hamming")) {
+    vector<vector<float> > parsed_scores;
+    vector<float> parsed_weights;
+    if (num_amino_acids <= 0) 
+      return NULL;
+    //converts the weights to a vector in C++ 
+    //vector<float> w(num_amino_acids); 
+    if (!convert_list_to_vector_blosum(weights, num_amino_acids, &parsed_weights)) {
+        Py_DECREF(weights);
+        return NULL;
+    }
+    
+
+    //converts the score matrix to a vector of vectors in C++
+    for (int z = 0; z < num_amino_acids; z++) {
+      PyObject *key = PyInt_FromLong(z);
+      PyObject *scores_row = PyObject_GetItem(scores, key);
+
+      vector<float> s(num_amino_acids);
+      if (!convert_list_to_vector_blosum(scores_row, num_amino_acids, &s)) {
+        Py_DECREF(key);
+        Py_DECREF(scores_row);
+        return NULL;
+
+      }
+      parsed_scores.push_back(s); 
+      Py_DECREF(key);
+      Py_DECREF(scores_row);
+    }
+   
+    self->ptr = new AnnoyIndex<int32_t, float, Blosum, Kiss64Random>(self->f, parsed_weights, parsed_scores);  
+  } /*else if (!strcmp(metric, "hamming")) {
     self->ptr = new HammingWrapper(self->f);
   } */else {
     PyErr_SetString(PyExc_ValueError, "No such metric");
@@ -218,7 +254,7 @@ py_an_dealloc(py_annoy* self) {
 static PyMemberDef py_annoy_members[] = {
   {(char*)"f", T_INT, offsetof(py_annoy, f), 0,
    (char*)""},
-  {NULL}	/* Sentinel */
+  {NULL}  /* Sentinel */
 };
 
 
@@ -294,6 +330,15 @@ bool check_constraints(py_annoy *self, int32_t item, bool building) {
   }
 }
 
+/*bool check_constraints_blosum(py_annoy *self, int32_t num_amino_acids) {
+  if (num_amino_acids <= 0) {
+    PyErr_SetString(PyExc_IndexError, "Number of amino acids can't be less than or equal to zero");
+    return false; 
+  }
+  return true; 
+
+}*/
+
 static PyObject* 
 py_an_get_nns_by_item(py_annoy *self, PyObject *args, PyObject *kwargs) {
   int32_t item, n, search_k=-1, include_distances=0;
@@ -319,21 +364,7 @@ py_an_get_nns_by_item(py_annoy *self, PyObject *args, PyObject *kwargs) {
 }
 
 
-bool
-convert_list_to_vector(PyObject* v, int f, vector<float>* w) {
-  if (PyObject_Size(v) != f) {
-    PyErr_SetString(PyExc_IndexError, "Vector has wrong length");
-    return false;
-  }
-  for (int z = 0; z < f; z++) {
-    PyObject *key = PyInt_FromLong(z);
-    PyObject *pf = PyObject_GetItem(v, key);
-    (*w)[z] = PyFloat_AsDouble(pf);
-    Py_DECREF(key);
-    Py_DECREF(pf);
-  }
-  return true;
-}
+
 
 static PyObject* 
 py_an_get_nns_by_vector(py_annoy *self, PyObject *args, PyObject *kwargs) {
@@ -504,9 +535,44 @@ py_an_set_seed(py_annoy *self, PyObject *args) {
   Py_RETURN_NONE;
 }
 
+/*static PyObject * 
+py_an_set_blosum_matrix(py_annoy *self, PyObject *args,PyObject* kwargs) {
+  vector<vector<float> > blosum_scores;
+  PyObject* blosum_matrix;
+  int32_t num_amino_acids;
+  if (!self->ptr) 
+    return NULL;
+  static char const * kwlist[] = {"f", "vector", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "iO", (char**)kwlist, &num_amino_acids, &blosum_matrix))
+    return NULL;
+  if (!check_constraints_blosum(self, num_amino_acids)) 
+    return NULL;
+
+  for (int z = 0; z < num_amino_acids; z++) {
+    PyObject *key = PyInt_FromLong(z);
+    PyObject *blosum_row = PyObject_GetItem(blosum_matrix, key);
+
+    vector<float> w(num_amino_acids);
+    if (!convert_list_to_vector_blosum(blosum_row, num_amino_acids, &w)) {
+      Py_DECREF(key);
+      Py_DECREF(blosum_row);
+      return NULL;
+
+    }
+
+    blosum_scores.push_back(w); 
+    Py_DECREF(key);
+    Py_DECREF(blosum_row);
+
+  }
+  self->ptr->set_blosum_matrix(blosum_scores); 
+  //Blosum::scores = blosum_scores; 
+  
+}*/
+
 static PyMethodDef AnnoyMethods[] = {
-  {"load",	(PyCFunction)py_an_load, METH_VARARGS | METH_KEYWORDS, "Loads (mmaps) an index from disk."},
-  {"save",	(PyCFunction)py_an_save, METH_VARARGS | METH_KEYWORDS, "Saves the index to disk."},
+  {"load",  (PyCFunction)py_an_load, METH_VARARGS | METH_KEYWORDS, "Loads (mmaps) an index from disk."},
+  {"save",  (PyCFunction)py_an_save, METH_VARARGS | METH_KEYWORDS, "Saves the index to disk."},
   {"get_nns_by_item",(PyCFunction)py_an_get_nns_by_item, METH_VARARGS | METH_KEYWORDS, "Returns the `n` closest items to item `i`.\n\n:param search_k: the query will inspect up to `search_k` nodes.\n`search_k` gives you a run-time tradeoff between better accuracy and speed.\n`search_k` defaults to `n_trees * n` if not provided.\n\n:param include_distances: If `True`, this function will return a\n2 element tuple of lists. The first list contains the `n` closest items.\nThe second list contains the corresponding distances."},
   {"get_nns_by_vector",(PyCFunction)py_an_get_nns_by_vector, METH_VARARGS | METH_KEYWORDS, "Returns the `n` closest items to vector `vector`.\n\n:param search_k: the query will inspect up to `search_k` nodes.\n`search_k` gives you a run-time tradeoff between better accuracy and speed.\n`search_k` defaults to `n_trees * n` if not provided.\n\n:param include_distances: If `True`, this function will return a\n2 element tuple of lists. The first list contains the `n` closest items.\nThe second list contains the corresponding distances."},
   {"get_item_vector",(PyCFunction)py_an_get_item_vector, METH_VARARGS, "Returns the vector for item `i` that was previously added."},
@@ -518,7 +584,8 @@ static PyMethodDef AnnoyMethods[] = {
   {"get_n_items",(PyCFunction)py_an_get_n_items, METH_NOARGS, "Returns the number of items in the index."},
   {"verbose",(PyCFunction)py_an_verbose, METH_VARARGS, ""},
   {"set_seed",(PyCFunction)py_an_set_seed, METH_VARARGS, "Sets the seed of Annoy's random number generator."},
-  {NULL, NULL, 0, NULL}		 /* Sentinel */
+ // {"set_blosum_matrix",(PyCFunction)py_an_set_blosum_matrix, METH_VARARGS | METH_KEYWORDS, "Sets the blosum matrix specified by the user as an instance variable in the annoy index."},
+  {NULL, NULL, 0, NULL}    /* Sentinel */
 };
 
 
@@ -564,7 +631,7 @@ static PyTypeObject PyAnnoyType = {
 };
 
 static PyMethodDef module_methods[] = {
-  {NULL}	/* Sentinel */
+  {NULL}  /* Sentinel */
 };
 
 #if PY_MAJOR_VERSION >= 3
