@@ -198,7 +198,6 @@ py_an_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
     //converts the weights to a vector in C++ 
     //vector<float> w(num_amino_acids); 
     if (!convert_list_to_vector_blosum(weights, num_amino_acids, &parsed_weights)) {
-        Py_DECREF(weights);
         return NULL;
     }
     

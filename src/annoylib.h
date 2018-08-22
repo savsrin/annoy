@@ -679,9 +679,6 @@ public:
     _n_nodes = 0;
     _nodes_size = 0;
     _roots.clear();
-    _scores.clear(); 
-    _weights.clear(); 
-
   }
 
   void unload() {
