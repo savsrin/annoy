@@ -199,7 +199,6 @@ inline size_t* centroids(const vector<Node*>& nodes, Random& random) {
   size_t count = nodes.size();
   ret[0] = random.index(count);//random.index(count);
   ret[1] = random.index(count -1);//random.index(count-1); 
-  //size_t ret[2] = {random.index(count), random.index(count-1)};
   ret[1] += (ret[1] >= ret[0]);
   return ret;
 }
@@ -224,6 +223,7 @@ inline void two_means(const vector<Node*>& nodes, int f, Random& random, bool co
   int ic = 1, jc = 1;
   for (int l = 0; l < iteration_steps; l++) {
     size_t k = random.index(count);
+    
     T di = ic * Distance::distance(p, nodes[k], f, weights, scores),
       dj = jc * Distance::distance(q, nodes[k], f, weights, scores);
     T norm = cosine ? get_norm(nodes[k]->v, f) : 1.0;
@@ -450,12 +450,20 @@ struct Blosum{
   }
 
   template<typename S, typename T>
-  static inline T margin(const Node<S, T>* n, const T* y, int f, const vector<float>& weights, const vector<vector<float> >& scores) { //add scores and weights to margin
+  static inline T margin(const Node<S, T>* n, const T* y, int f, const vector<float>& weights, const vector<vector<float> >& scores) { 
     return blosum_distance(n->v, y, f, weights, scores); 
   }
 
   template<typename T> 
   static inline T blosum_distance(const T* u, const T* v, int f, const vector<float>& weights, const vector<vector<float> >& scores) {
+    if(__verbose) {
+      for(int h = 0; h < scores.size(); h++) {
+        for (int j = 0; j < scores[h].size(); j++) {
+          showUpdate("%d", scores[h][j]); 
+        }
+        showUpdate("\n"); 
+      } 
+    }
     T blosum_sim = 0;
     T score1 = 0, score2 = 0; 
     for (int i = 0; i < f; i++) {
@@ -473,6 +481,7 @@ struct Blosum{
     bool side = blosum_q < blosum_p;
     if (__verbose) showUpdate("p: %g, q: %g, side: %d \n", blosum_p, blosum_q, side); 
     return side; 
+ 
     
   }*/
   template<typename T>
@@ -572,6 +581,7 @@ protected:
 public:
 
   AnnoyIndex(int f) : _f(f), _random() {
+    if(_verbose) showUpdate("in normal annoy constructor \n"); 
     _s = offsetof(Node, v) + f * sizeof(T); // Size of each node
     _verbose = false;
     _K = (_s - offsetof(Node, children)) / sizeof(S); // Max number of descendants to fit into node
@@ -580,10 +590,13 @@ public:
   }
   AnnoyIndex(int f,  const vector<float>& weights, const vector<vector<float> >& scores) 
     : _f(f), _random(), _weights(weights), _scores(scores) {
+     if(_verbose) showUpdate("in annoy constructor blosum\n"); 
     _s = offsetof(Node, v) + f * sizeof(T); // Size of each node
     _verbose = false;
     _K = (_s - offsetof(Node, children)) / sizeof(S); // Max number of descendants to fit into node
+     if(_verbose) showUpdate("starting to reinitialize\n"); 
     reinitialize(); // Reset everything
+     if(_verbose) showUpdate("reinitialized everything\n"); 
   }
   ~AnnoyIndex() {
     unload();
@@ -635,7 +648,7 @@ public:
   if (_get(i)->n_descendants >= 1) // Issue #223
           indices.push_back(i);
       }
-
+      if (_verbose) showUpdate("calling make tree \n")
       _roots.push_back(_make_tree(indices, true)); //make tree called with vector w/ all item #s
     }
     // Also, copy the roots into the last segment of the array
@@ -828,12 +841,14 @@ protected:
     if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d", centrds[0], centrds[1]); 
 
     D::create_split(children, _f, _s, _random, m, centrds[0], centrds[1], _weights, _scores);
-    
+
+    if (_verbose) showUpdate("finished creating split \n"); 
     for (size_t i = 0; i < indices.size(); i++) {
       S j = indices[i];
       Node* n = _get(j);
       if (n) {
         //showUpdate("i: %d \n", (int)i); 
+        //bool side = D::side(m, n->v, _f, _random);
         bool side = (Distance::distance(n, children[centrds[0]], _f, _weights, _scores) > Distance::distance(n, children[centrds[1]], _f, _weights, _scores));
         children_indices[side].push_back(j); //adds index
       }
