@@ -394,7 +394,6 @@ py_an_get_item_vector(py_annoy *self, PyObject *args) {
 
 static PyObject* 
 py_an_add_item(py_annoy *self, PyObject *args, PyObject* kwargs) {
-  //showUpdate("in annoy module add item\n"); 
   PyObject* v;
   int32_t item;
   if (!self->ptr) 
@@ -411,7 +410,6 @@ py_an_add_item(py_annoy *self, PyObject *args, PyObject* kwargs) {
   if (!convert_list_to_vector(v, self->f, &w)) {
     return NULL;
   }
- //showUpdate("calling annoy add item\n"); 
   self->ptr->add_item(item, &w[0]);
 
   Py_RETURN_NONE;
