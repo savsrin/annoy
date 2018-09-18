@@ -130,12 +130,60 @@ public:
    
   };
 
+  template class AnnoyIndexInterface<int32_t, float, float>;
 
+  class BlosumWrapper : public AnnoyIndexInterface<int32_t, float, float> {
+    // Wrapper class for Hamming distance, using composition.
+    // This translates binary (float) vectors into packed uint64_t vectors.
+    // This is questionable from a performance point of view. Should reconsider this solution.
+  private:
+    int32_t _f;
+    AnnoyIndex<int32_t, uint8_t, float, Blosum, Kiss64Random> _index;
+    void _pack(const float* src, uint8_t* dst) {
+      for (int32_t i = 0; i < _f; i++) {
+        dst[i] = uint8_t(src[i]); 
+      }
+    };
+    void _unpack(const uint8_t* src, float* dst) {
+      for (int32_t i = 0; i < _f; i++) {
+        dst[i] = float(src[i]); 
+      }
+    };
+  public:
+   BlosumWrapper(int f, vector<float> parsed_weights, vector<vector<float> > parsed_scores) : _f(f), _index(f, parsed_weights, parsed_scores) {};
+    void add_item(int32_t item, const float* w) {
+      vector<uint8_t> w_internal(_f);
+      _pack(w, &w_internal[0]);
+      _index.add_item(item, &w_internal[0]);
+    };
+    void build(int q) { _index.build(q); };
+    void unbuild() { _index.unbuild(); };
+    bool save(const char* filename) { return _index.save(filename); };
+    void unload() { _index.unload(); };
+    bool load(const char* filename) { return _index.load(filename); };
+    float get_distance(int32_t i, int32_t j) { return _index.get_distance(i, j); };
+    void get_nns_by_item(int32_t item, size_t n, size_t search_k, vector<int32_t>* result, vector<float>* distances) {
+      _index.get_nns_by_item(item, n, search_k, result, distances);
+    };
+    void get_nns_by_vector(const float* w, size_t n, size_t search_k, vector<int32_t>* result, vector<float>* distances) {
+      vector<uint8_t> w_internal(_f);
+      _pack(w, &w_internal[0]);
+      _index.get_nns_by_vector(&w_internal[0], n, search_k, result, distances);
+    };
+    int32_t get_n_items() { return _index.get_n_items(); };
+    void verbose(bool v) { _index.verbose(v); };
+    void get_item(int32_t item, float* v) {
+      vector<uint8_t> v_internal(_f);
+      _index.get_item(item, &v_internal[0]);
+      _unpack(&v_internal[0], v);
+    };
+    void set_seed(int q) { _index.set_seed(q); };
+  };
 // annoy python object
 typedef struct {
   PyObject_HEAD
   int f;
-  AnnoyIndexInterface<int32_t, float>* ptr;
+  AnnoyIndexInterface<int32_t, float, float>* ptr; //what to do here? 
 } py_annoy;
 bool
 convert_list_to_vector(PyObject* v, int f, vector<float>* w) {
@@ -170,11 +218,11 @@ py_an_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
   if (!PyArg_ParseTupleAndKeywords(args, kwargs, "i|siOO", (char**)kwlist, &self->f, &metric, &num_amino_acids, &weights, &scores))
     return NULL;
   if (!metric || !strcmp(metric, "angular")) {
-   self->ptr = new AnnoyIndex<int32_t, float, Angular, Kiss64Random>(self->f);
+   self->ptr = new AnnoyIndex<int32_t, float, float, Angular, Kiss64Random>(self->f);
   } else if (!strcmp(metric, "euclidean")) {
-    self->ptr = new AnnoyIndex<int32_t, float, Euclidean, Kiss64Random>(self->f);
+    self->ptr = new AnnoyIndex<int32_t, float, float, Euclidean, Kiss64Random>(self->f);
   } else if (!strcmp(metric, "manhattan")) {
-    self->ptr = new AnnoyIndex<int32_t, float, Manhattan, Kiss64Random>(self->f);
+    self->ptr = new AnnoyIndex<int32_t, float, float, Manhattan, Kiss64Random>(self->f);
   } else if (!strcmp(metric, "blosum")) {
     if (num_amino_acids <= 0) 
       return NULL;
@@ -201,7 +249,8 @@ py_an_new(PyTypeObject *type, PyObject *args, PyObject *kwargs) {
       Py_DECREF(scores_row);
 
     }
-    self->ptr = new AnnoyIndex<int32_t, float, Blosum, Kiss64Random>(self->f, parsed_weights, parsed_scores);  
+    self->ptr = new BlosumWrapper(self->f, parsed_weights, parsed_scores);
+   // self->ptr = new AnnoyIndex<int32_t, uint8_t, float, Blosum, Kiss64Random>(self->f, parsed_weights, parsed_scores);  
   } /*else if (!strcmp(metric, "hamming")) {
     self->ptr = new HammingWrapper(self->f);
   } */else {
@@ -400,8 +449,9 @@ py_an_add_item(py_annoy *self, PyObject *args, PyObject* kwargs) {
   if (!self->ptr) 
     return NULL;
   static char const * kwlist[] = {"i", "vector", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "iO", (char**)kwlist, &item, &v))
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "iO", (char**)kwlist, &item, &v)) {
     return NULL;
+  }
 
   if (!check_constraints(self, item, true)) {
     return NULL;
