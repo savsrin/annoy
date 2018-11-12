@@ -138,7 +138,7 @@ public:
     // This is questionable from a performance point of view. Should reconsider this solution.
   private:
     int32_t _f;
-    AnnoyIndex<int32_t, uint8_t, float, Blosum, Kiss64Random> _index;
+    AnnoyIndex<int64_t, uint8_t, float, Blosum, Kiss64Random> _index;
     void _pack(const float* src, uint8_t* dst) {
       for (int32_t i = 0; i < _f; i++) {
         dst[i] = uint8_t(src[i]); 
@@ -163,12 +163,20 @@ public:
     bool load(const char* filename) { return _index.load(filename); };
     float get_distance(int32_t i, int32_t j) { return _index.get_distance(i, j); };
     void get_nns_by_item(int32_t item, size_t n, size_t search_k, vector<int32_t>* result, vector<float>* distances) {
-      _index.get_nns_by_item(item, n, search_k, result, distances);
+      vector<int64_t> result1;
+      _index.get_nns_by_item(item, n, search_k, &result1, distances);
+      for(size_t i = 0; i < result1.size(); i++) {
+        result->push_back((int32_t) result1[i]);
+      }
     };
     void get_nns_by_vector(const float* w, size_t n, size_t search_k, vector<int32_t>* result, vector<float>* distances) {
       vector<uint8_t> w_internal(_f);
       _pack(w, &w_internal[0]);
-      _index.get_nns_by_vector(&w_internal[0], n, search_k, result, distances);
+      vector<int64_t> result1;
+      _index.get_nns_by_vector(&w_internal[0], n, search_k, &result1, distances);
+      for(size_t i = 0; i < result1.size(); i++) {
+        result->push_back((int32_t) result1[i]);
+      }
     };
     int32_t get_n_items() { return _index.get_n_items(); };
     void verbose(bool v) { _index.verbose(v); };

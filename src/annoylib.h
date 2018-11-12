@@ -456,14 +456,14 @@ struct Blosum{
 
   template<typename T, typename U> 
   static inline U blosum_distance(const T* u, const T* v, int f, const vector<float>& weights, const vector<vector<float> >& scores) {
-    if(__verbose) {
+    /*if(__verbose) {
       for(int h = 0; h < scores.size(); h++) {
         for (int j = 0; j < scores[h].size(); j++) {
           showUpdate("%d", scores[h][j]); 
         }
         showUpdate("\n"); 
       } 
-    }
+    }*/
     U blosum_sim = 0;
     U score1 = 0, score2 = 0; 
     for (int i = 0; i < f; i++) {
@@ -578,6 +578,7 @@ protected:
   S _K;
   bool _loaded;
   bool _verbose;
+  bool _setverbose; 
   int _fd;
   vector<vector<float> > _scores; 
   vector<float> _weights;
@@ -585,10 +586,12 @@ protected:
 public:
 
   AnnoyIndex(int f) : _f(f), _random() {
-    if(_verbose) showUpdate("in normal annoy constructor \n"); 
+    //if(_verbose) showUpdate("in normal annoy constructor \n"); 
     _s = offsetof(Node, v) + f * sizeof(T); // Size of each node
     _verbose = false;
+    _setverbose = false; 
     _K = (_s - offsetof(Node, children)) / sizeof(S); // Max number of descendants to fit into node
+    showUpdate("_K = %ld /n", _K);
     reinitialize(); // Reset everything
     
   }
@@ -597,10 +600,12 @@ public:
      if(_verbose) showUpdate("in annoy constructor blosum\n"); 
     _s = offsetof(Node, v) + f * sizeof(T); // Size of each node
     _verbose = false;
+    _setverbose = false; 
     _K = (_s - offsetof(Node, children)) / sizeof(S); // Max number of descendants to fit into node
-     if(_verbose) showUpdate("starting to reinitialize\n"); 
+    printf("_K = %ld /n", _K);
+    // if(_verbose) showUpdate("starting to reinitialize\n"); 
     reinitialize(); // Reset everything
-     if(_verbose) showUpdate("reinitialized everything\n"); 
+     //if(_verbose) showUpdate("reinitialized everything\n"); 
   }
   ~AnnoyIndex() {
     unload();
@@ -645,13 +650,17 @@ public:
         break;
       if (q != -1 && _roots.size() >= (size_t)q)
         break;
+      if(_setverbose && _roots.size() >= 50) {
+        _verbose = true; 
+        __verbose = true; 
+      }
       if (_verbose) showUpdate("pass %zd...\n", _roots.size());
-      showUpdate("pass %zd...\n", _roots.size());
+      //showUpdate("pass %zd...\n", _roots.size());
 
 
       vector<S> indices;
       for (S i = 0; i < _n_items; i++) {
-  if (_get(i)->n_descendants >= 1) // Issue #223
+  if (_get(i)->n_descendants == 1) // Issue #223
           indices.push_back(i);
       }
       if (_verbose) showUpdate("calling make tree \n")
@@ -664,7 +673,7 @@ public:
       memcpy(_get(_n_nodes + (S)i), _get(_roots[i]), _s);
     _n_nodes += _roots.size();
 
-    if (_verbose) showUpdate("has %d nodes\n", _n_nodes); 
+    if (_verbose) showUpdate("has %ld nodes\n", _n_nodes); 
     if (_verbose) showUpdate("finished building \n"); 
   }
   
@@ -768,8 +777,8 @@ public:
     return _n_items;
   }
   void verbose(bool v) {
-    _verbose = v;
-    __verbose = v; 
+    _setverbose = v;
+    // __verbose = v; 
   }
 
   void get_item(S item, T* v) {
@@ -792,7 +801,7 @@ protected:
       const double reallocation_factor = 1.3;
       S new_nodes_size = std::max(n,
           (S)((_nodes_size + 1) * reallocation_factor));
-      if (_verbose) showUpdate("Reallocating to %d nodes\n", new_nodes_size);
+      if (_verbose) showUpdate("Reallocating to %ld nodes\n", new_nodes_size);
       _nodes = realloc(_nodes, _s * new_nodes_size);
       memset((char *)_nodes + (_nodes_size * _s)/sizeof(char), 0, (new_nodes_size - _nodes_size) * _s);
       _nodes_size = new_nodes_size;
@@ -826,7 +835,7 @@ protected:
       // Using memcpy instead of std::copy for MSVC compatibility. #235
       memcpy(m->children, &indices[0], indices.size() * sizeof(S));
       if (indices[0] == 1) {
-        if (_verbose) showUpdate("leaf node index: %d\n", item); //TODO: remove 
+        if (_verbose) showUpdate("leaf node index: %ld\n", item); //TODO: remove 
 
       }
       return item;
@@ -843,8 +852,8 @@ protected:
     vector<S> children_indices[2];
     Node* m = (Node*)malloc(_s); // TODO: avoid 
     size_t* centrds = centroids(children, _random);
-    if (_verbose) showUpdate("children size: %d \n", children.size());
-    if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d", centrds[0], centrds[1]); 
+   // if (_verbose) showUpdate("children size: %d \n", children.size());
+   // if (_verbose) showUpdate("centroid 1: %d, centroid 2: %d", centrds[0], centrds[1]); 
 
     D::create_split(children, _f, _s, _random, m, centrds[0], centrds[1], _weights, _scores);
 
@@ -926,7 +935,7 @@ protected:
       U d = top.first;
       S i = top.second;
       Node* nd = _get(i);
-      if (_verbose) showUpdate("second = %d, nd = %p \n", i, nd); 
+      if (_verbose) showUpdate("second = %ld, nd = %p \n", i, nd); 
       //showUpdate(">node index: %d, pq_distance: %g \n", i, d); //TODO: remove
       q.pop(); //pop the highest priority node off
       if (nd->n_descendants == 1 && i < _n_items) {
@@ -939,9 +948,9 @@ protected:
         const S* dst = nd->children;
         nns.insert(nns.end(), dst, &dst[nd->n_descendants]);
         if (_verbose) showUpdate("in if statement for n_descendants <= K \n"); 
-        if (_verbose) showUpdate("nd->n_descendants %d \n", nd->n_descendants);
+        if (_verbose) showUpdate("nd->n_descendants %ld \n", nd->n_descendants);
         for(int h = 0; h < nd->n_descendants; h++) 
-          if (_verbose) showUpdate(">added nn index: %d \n", dst[h]); 
+          if (_verbose) showUpdate(">added nn index: %ld \n", dst[h]); 
 
         //for(int h = 0; h < nd->n_descendants; h++) 
          // showUpdate(">added nn index: %d \n", dst[h]); 
